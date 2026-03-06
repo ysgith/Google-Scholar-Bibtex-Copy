@@ -1,63 +1,90 @@
 // ==UserScript==
-// @name         Bibtex复制
-// @namespace    CaNoe
-// @version      0.1
-// @description  直接复制bibtex到剪贴板
-// @author       CaNoe
+// @name         Google Scholar Copy BibTeX
+// @namespace    blog.icespite.top
+// @version      1.0.0
+// @description  点击 BibTeX 链接时直接复制到剪贴板
+// @author       IceSpite
 // @match        https://scholar.google.com/scholar*
 // @match        https://scholar.google.com.hk/scholar*
-// @require      https://unpkg.com/jquery@3.7.1/dist/jquery.js
 // @connect      scholar.googleusercontent.com
 // @grant        GM_setClipboard
 // @grant        GM_xmlhttpRequest
 // @run-at       document-end
 // @license MIT
-// @downloadURL  https://update.greasyfork.org/scripts/442869/%E8%B0%B7%E6%AD%8C%E5%AD%A6%E6%9C%AF%E7%9B%B4%E6%8E%A5%E5%A4%8D%E5%88%B6bibtex.user.js
-// @updateURL    https://update.greasyfork.org/scripts/442869/%E8%B0%B7%E6%AD%8C%E5%AD%A6%E6%9C%AF%E7%9B%B4%E6%8E%A5%E5%A4%8D%E5%88%B6bibtex.meta.js
 // ==/UserScript==
 
-/* global $ */
-
-(function() {
+(function () {
     'use strict';
-    var ALERT = true;
 
-    function showNotification(message) {
-        var notification = document.createElement('div');
-        notification.style.position = 'fixed';
-        notification.style.bottom = '10px';
-        notification.style.right = '10px';
-        notification.style.backgroundColor = '#444';
-        notification.style.color = '#fff';
-        notification.style.padding = '10px';
-        notification.style.borderRadius = '5px';
-        notification.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.5)';
-        notification.innerText = message;
+    const SHOW_NOTIFICATION = true;
 
-        document.body.appendChild(notification);
+    function notify(msg, x, y) {
+        if (!SHOW_NOTIFICATION) return;
 
-        setTimeout(function() {
-            document.body.removeChild(notification);
-        }, 3000);
+        const div = document.createElement("div");
+        div.textContent = msg;
+
+        div.style.position = "fixed";
+        div.style.left = x + "px";
+        div.style.top = y + "px";
+        div.style.transform = "translate(10px,10px)";
+        div.style.background = "rgba(50,50,50,0.9)";
+        div.style.color = "#fff";
+        div.style.padding = "6px 10px";
+        div.style.borderRadius = "6px";
+        div.style.fontSize = "13px";
+        div.style.zIndex = 9999;
+        div.style.pointerEvents = "none";
+        div.style.boxShadow = "0 2px 6px rgba(0,0,0,0.3)";
+        div.style.transition = "opacity 0.3s";
+
+        document.body.appendChild(div);
+
+        setTimeout(() => {
+            div.style.opacity = "0";
+            setTimeout(() => div.remove(), 300);
+        }, 1000);
     }
 
-    $('a.gs_nta.gs_nph').each(function() {
-        if (this.classList.length == 2) {
-            var that = this;
-            this.onclick = function() {
-                GM_xmlhttpRequest({
-                    url: that.href,
-                    onload: ({
-                        responseText
-                    }) => {
-                        GM_setClipboard(responseText);
-                        if (ALERT) {
-                            showNotification('复制成功');
-                        }
-                    }
-                });
-                return false;
+    function copyBibtex(url, x, y) {
+
+        GM_xmlhttpRequest({
+            method: "GET",
+            url: url,
+
+            onload: function (res) {
+
+                if (res.status !== 200) {
+                    notify("BibTeX 获取失败", x, y);
+                    return;
+                }
+
+                GM_setClipboard(res.responseText, "text");
+                notify("BibTeX 已复制", x, y);
+            },
+
+            onerror: function () {
+                notify("请求失败", x, y);
             }
-        }
-    });
+        });
+    }
+
+    function handleClick(e) {
+
+        const link = e.target.closest("a.gs_nta.gs_nph");
+
+        if (!link) return;
+
+        if (link.classList.length !== 2) return;
+
+        e.preventDefault();
+
+        const x = e.clientX;
+        const y = e.clientY;
+
+        copyBibtex(link.href, x, y);
+    }
+
+    document.addEventListener("click", handleClick, true);
+
 })();
